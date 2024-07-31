@@ -1,0 +1,5 @@
+numpy==1.25.0
+flask==2.3.2
+Pillow==10.4.0
+packaging==24.1 
+pytesseract==0.3.10

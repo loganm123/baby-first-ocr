@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graphic Design Passion</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            font-size: 2.5em;
+            color: #333;
+            text-align: center;
+        }
+        #counter {
+            font-size: 1.2em;
+            color: #666;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Graphic design is my passion :)</h1>
+    <div id="counter">Upload count: <span id="count">{{ upload_count }}</span></div>
+</body>
+<script>
+    function updateCounter() {
+        fetch('/get_count')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('count').textContent = data.count;
+            });
+    }
+    
+    setInterval(updateCounter, 5000); // Update every 5 seconds
+    </script>
+    
+</html>
