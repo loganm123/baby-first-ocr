@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import calendar as calendar
 import decimal as Decimal
 import time as time
-import datetime
 from decimal import Decimal
 from PIL import Image
 import pytesseract
@@ -15,7 +14,9 @@ import numpy as np
 from collections import defaultdict
 import os
 
-UPLOAD_COUNTS = int()
+UPLOAD_COUNTS = defaultdict(int)
+ACTIVE_REQUESTS = int()
+
 
 API_KEYS = {"test-key123"}
 
@@ -27,7 +28,12 @@ def load_counts():
 
 def save_counts():
     global UPLOAD_COUNTS
-    UPLOAD_COUNTS += 1
+    today = datetime.now().date().isoformat()
+    UPLOAD_COUNTS[today] += 1
+    with open('upload_counts.json', 'w') as f:
+        json.dump(dict(UPLOAD_COUNTS), f)
+
+
 
 
 def allowed_file(filename):
@@ -36,22 +42,19 @@ def allowed_file(filename):
 
 
 def require_api_key(func):
+    @wraps(func)
     def decorator(*args, **kwargs):
-        # Get the API key from the request headers
-        api_key = request.headers.get('x-api-key')
-        
-        # Check if the API key is present and valid
-        if not api_key or api_key not in API_KEYS:
-            # If the API key is missing or invalid, return a 401 Unauthorized response
-            return jsonify({"error": "Unauthorized"}), 401
-        
-        # If the API key is valid, proceed with the original function
-        return func(*args, **kwargs)
-    
-    # Set the name of the decorated function to the original function's name
-    decorator.__name__ = func.__name__
-    
+        global ACTIVE_REQUESTS
+        ACTIVE_REQUESTS += 1
+        try:
+            api_key = request.headers.get('x-api-key')
+            if not api_key or api_key not in API_KEYS:
+                return jsonify({"error": "Unauthorized"}), 401
+            return func(*args, **kwargs)
+        finally:
+            ACTIVE_REQUESTS -= 1
     return decorator
+
 
 def extract_price(line):
     pattern = r'\d+\.\d{2}'
@@ -78,29 +81,20 @@ def read_ocr(image_file):
     print(receipt_data)
     return receipt_data
 
-"""
-def process_receipt_data():
-    receipt_data = session.get("receipt_data", [])
-    
-    for item in receipt_data:
-        item['category'] = ai_categorize(item['line'])
-    
-    session["receipt_data"] = receipt_data
-    return receipt_data
-"""
 #start session
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 
 @app.route("/secret-api-counter")
-def homepage():
-    upload_count = str(UPLOAD_COUNTS)    
-    return render_template("home.html", upload_count = upload_count)
+def secret_api_counter():
+    today = datetime.now().date().isoformat()
+    today_count = UPLOAD_COUNTS.get(today, 0)
+    return render_template("secretcounter.html", upload_count=str(today_count), active_requests=ACTIVE_REQUESTS)
+
 
 @app.route('/upload', methods=['POST'])
 @require_api_key
 def upload_image():
-    save_counts()
     if 'file' not in request.files:
         print("No file part'")
         return jsonify({'error': 'No file part'}), 400
@@ -112,19 +106,29 @@ def upload_image():
         img = Image.open(file)
         img.show()
         ocr_text = read_ocr(file)
-        #processed_data = process_receipt_data(
+        save_counts()  # Call save_counts() here
         return jsonify(ocr_text)
     print("Invalid file type")
     return jsonify({'error': 'Invalid file type'}), 400
 
-@app.route('/get_count')
-def get_count():
-    return jsonify({'count': str(UPLOAD_COUNTS)})
+
+@app.route('/get_status')
+def get_status():
+    today = datetime.now().date().isoformat()
+    today_count = UPLOAD_COUNTS.get(today, 0)
+    print(UPLOAD_COUNTS)
+    return jsonify({
+        'count': str(today_count),
+        'active_requests': str(ACTIVE_REQUESTS)
+    })
 
 
 
-#runs the application
+
+
 if __name__ == '__main__':
+    load_counts()
     app.run(host='0.0.0.0', port=6969, debug=True)
+
 
     
