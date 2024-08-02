@@ -71,15 +71,26 @@ def read_ocr(image_file):
     receipt_data = []
     for index, line in enumerate(lines, start=1):
         if line.strip():
+            # Split the line into parts
+            parts = re.split(r'(\d+(?:\.\d+)?)', line.strip())
+            # Remove empty strings
+            parts = [part.strip() for part in parts if part.strip()]
+            
+            item_name = ' '.join([part for part in parts if not re.match(r'^\d+(?:\.\d+)?$', part)])
+            numbers = [part for part in parts if re.match(r'^\d+(?:\.\d+)?$', part)]
+            
             receipt_data.append({
                 "id": index,
                 "line": line.strip(),
+                "item_name": item_name,
+                "numbers": numbers,
                 "category": "unassigned",
                 "price": extract_price(line)
             })
     receipt_data = [item for item in receipt_data if item['price'] is not None and not any(keyword in item['line'].upper() for keyword in ['AMOUNT', 'VISA', 'DISCOVER', 'AMEX', 'MASTERCARD','TAX','TOTAL'])]
     print(receipt_data)
     return receipt_data
+
 
 #start session
 app.config["SESSION_PERMANENT"] = False
